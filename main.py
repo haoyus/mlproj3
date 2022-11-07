@@ -84,36 +84,36 @@ def prepare_data(path):
     return X, Y, attributes, attr_inds, ind_attrs, classes
 
 def plot_scores(score_list, max_iters, dataset_name, algo_name):
-    fig, ax = plt.subplots(2,2, figsize=(10,8))
+    fig, ax = plt.subplots(1,2, figsize=(10,8))
     fig.suptitle(f'{algo_name}_performance_on_{dataset_name}')
     ylim_max = 1.0
-    ax[0,0].plot(max_iters, score_list[:,0], color='b', label='homogeneity_score')
-    ax[0,0].set_ylim(0, ylim_max)
-    ax[0,0].grid()
-    ax[0,0].legend()
-    ax[0,0].set_xlabel('max iterations')
-    ax[0,0].set_ylabel('score')
+    ax[0].plot(max_iters, score_list[:,0], color='b', label='homogeneity_score')
+    ax[0].set_ylim(0, ylim_max)
+    ax[0].grid()
+    ax[0].legend()
+    ax[0].set_xlabel('max iterations')
+    ax[0].set_ylabel('score')
 
-    ax[0,1].plot(max_iters, score_list[:,1], color='b', label='completeness_score')
-    ax[0,1].set_ylim(0, ylim_max)
-    ax[0,1].grid()
-    ax[0,1].legend()
-    ax[0,1].set_xlabel('max iterations')
-    ax[0,1].set_ylabel('score')
+    ax[1].plot(max_iters, score_list[:,1], color='b', label='completeness_score')
+    ax[1].set_ylim(0, ylim_max)
+    ax[1].grid()
+    ax[1].legend()
+    ax[1].set_xlabel('max iterations')
+    ax[1].set_ylabel('score')
 
-    ax[1,0].plot(max_iters, score_list[:,3], color='b', label='adjusted_rand_score')
-    ax[1,0].set_ylim(0, ylim_max)
-    ax[1,0].grid()
-    ax[1,0].legend()
-    ax[1,0].set_xlabel('max iterations')
-    ax[1,0].set_ylabel('score')
+    # ax[1,0].plot(max_iters, score_list[:,3], color='b', label='adjusted_rand_score')
+    # ax[1,0].set_ylim(0, ylim_max)
+    # ax[1,0].grid()
+    # ax[1,0].legend()
+    # ax[1,0].set_xlabel('max iterations')
+    # ax[1,0].set_ylabel('score')
 
-    ax[1,1].plot(max_iters, score_list[:,4], color='b', label='adjusted_mutual_info_score')
-    ax[1,1].set_ylim(0, ylim_max)
-    ax[1,1].grid()
-    ax[1,1].legend()
-    ax[1,1].set_xlabel('max iterations')
-    ax[1,1].set_ylabel('score')
+    # ax[1,1].plot(max_iters, score_list[:,4], color='b', label='adjusted_mutual_info_score')
+    # ax[1,1].set_ylim(0, ylim_max)
+    # ax[1,1].grid()
+    # ax[1,1].legend()
+    # ax[1,1].set_xlabel('max iterations')
+    # ax[1,1].set_ylabel('score')
     fig.tight_layout()
     plt.savefig(f'{algo_name}_scores_{dataset_name}.png')
     plt.clf()
@@ -170,16 +170,17 @@ def search_k(algo_name, dataset_name, data, max_k=20):
     ax.set_ylabel('score')
     plt.savefig(f'{algo_name}_search_k_sil_{dataset_name}.png')
     plt.clf()
-    fig, ax = plt.subplots(figsize=(5,4))
-    ax.plot(k_list, inertias, color='b', label='inertia')
-    ax.grid()
-    ax.legend()
-    ax.set_xlim(0,max_k)
-    plt.xticks(range(0,max_k+1))
-    ax.set_xlabel('num of clusters')
-    ax.set_ylabel('inertia')
-    plt.savefig(f'{algo_name}_search_k_inertia_{dataset_name}.png')
-    plt.clf()
+    if algo_name=='kmeans':
+        fig, ax = plt.subplots(figsize=(5,4))
+        ax.plot(k_list, inertias, color='b', label='inertia')
+        ax.grid()
+        ax.legend()
+        ax.set_xlim(0,max_k)
+        plt.xticks(range(0,max_k+1))
+        ax.set_xlabel('num of clusters')
+        ax.set_ylabel('inertia')
+        plt.savefig(f'{algo_name}_search_k_inertia_{dataset_name}.png')
+        plt.clf()
     return score_list, k_list
 
 def test_kmeans(data, labels, fea_indices, k, iter_limit):
@@ -280,7 +281,7 @@ def test_dataset(path, name, num_clusters, fea_indices):
     plot_scores(score_list, max_iters, name, 'kmeans')
     plot_fittime(time_list, max_iters, name, 'kmeans')
 
-    score_list, time_list, max_iters = test_em(X,Y, fea_indices, num_clusters, 100)
+    score_list, time_list, max_iters, _ = test_em(X,Y, fea_indices, num_clusters, 100)
     score_list, time_list, max_iters = score_list[1:], time_list[1:], max_iters[1:]
     plot_scores(score_list, max_iters, name, 'em')
     plot_fittime(time_list, max_iters, name, 'em')
@@ -376,6 +377,86 @@ def run_SVD(X, dataset_name, double_dim=False):
     X_trans = svd.fit_transform(X)
     # print(X_trans.shape)
     return X_trans
+
+def test_cluster_with_reduced_once(path, dataset_name, algo_name):
+    X, Y, attributes, attr_inds, ind_attrs, classes = prepare_data(path)
+    scaler = StandardScaler()
+    X = scaler.fit_transform(X)
+    X_pca = run_PCA(X, dataset_name, False)
+    X_ica = run_ICA(X, dataset_name, False)
+    X_rpj = run_RPJ(X, dataset_name, False)
+    X_svd = run_SVD(X, dataset_name, False)
+    if dataset_name=='rice':
+        K = 2
+    elif dataset_name=='bean':
+        K = 4
+    else:
+        raise Exception('wrong dataset name')
+
+    if algo_name=='kmeans':
+        kmeans_pca = KMeans(n_clusters=K, init='random', n_init=10)
+        kmeans_pca.fit(X_pca)
+        y_pred_pca = kmeans_pca.predict(X_pca)
+        kmeans_ica = KMeans(n_clusters=K, init='random', n_init=10)
+        kmeans_ica.fit(X_ica)
+        y_pred_ica = kmeans_ica.predict(X_ica)
+    elif algo_name=='em':
+        kmeans_pca = EM(n_components=K, n_init=10)
+        kmeans_pca.fit(X_pca)
+        y_pred_pca = kmeans_pca.predict(X_pca)
+        kmeans_ica = EM(n_components=K, n_init=10)
+        kmeans_ica.fit(X_ica)
+        y_pred_ica = kmeans_ica.predict(X_ica)
+
+    if dataset_name=='bean':
+        fig, ax = plt.subplots(1,2, figsize=(8,4))
+        fig.suptitle(f'{algo_name}_cluster_on_{dataset_name} after Dim Reduction')
+        ax[0].scatter(X_pca[:,0], X_pca[:,1], c=y_pred_pca)
+        ax[0].grid()
+        ax[0].set_xlabel('PCA 0th dim')
+        ax[0].set_ylabel('PCA 1st dim')
+    # 
+        ax[1].scatter(X_ica[:,0], X_ica[:,1], c=y_pred_ica)
+        ax[1].grid()
+        ax[1].set_xlabel('ICA 0th dim')
+        ax[1].set_ylabel('ICA 1st dim')
+    # 
+        fig.tight_layout()
+        plt.savefig(f'{algo_name}_cluster_on_{dataset_name} after Dim Reduction.png')
+        plt.clf()
+    elif dataset_name == 'rice':
+        fig, ax = plt.subplots(2,3, figsize=(9,6))
+        fig.suptitle(f'{algo_name}_cluster_on_{dataset_name} after Dim Reduction')
+        ax[0,0].scatter(X_pca[:,0], X_pca[:,1], c=y_pred_pca)
+        ax[0,0].grid()
+        ax[0,0].set_xlabel('PCA 0th dim')
+        ax[0,0].set_ylabel('PCA 1st dim')
+        ax[0,1].scatter(X_pca[:,1], X_pca[:,2], c=y_pred_pca)
+        ax[0,1].grid()
+        ax[0,1].set_xlabel('PCA 1th dim')
+        ax[0,1].set_ylabel('PCA 2nd dim')
+        ax[0,2].scatter(X_pca[:,0], X_pca[:,2], c=y_pred_pca)
+        ax[0,2].grid()
+        ax[0,2].set_xlabel('PCA 0th dim')
+        ax[0,2].set_ylabel('PCA 2nd dim')
+
+        ax[1,0].scatter(X_ica[:,0], X_ica[:,1], c=y_pred_ica)
+        ax[1,0].grid()
+        ax[1,0].set_xlabel('ICA 0th dim')
+        ax[1,0].set_ylabel('ICA 1st dim')
+        ax[1,1].scatter(X_ica[:,1], X_ica[:,2], c=y_pred_ica)
+        ax[1,1].grid()
+        ax[1,1].set_xlabel('ICA 1th dim')
+        ax[1,1].set_ylabel('ICA 2nd dim')
+        ax[1,2].scatter(X_ica[:,0], X_ica[:,2], c=y_pred_ica)
+        ax[1,2].grid()
+        ax[1,2].set_xlabel('ICA 0th dim')
+        ax[1,2].set_ylabel('ICA 2nd dim')
+
+        fig.tight_layout()
+        plt.savefig(f'{algo_name}_cluster_on_{dataset_name} after Dim Reduction.png')
+        plt.clf()
+    
 
 def test_cluster_with_reduced(path, dataset_name, algo_name, double_dim=False, is_search_k=False):
     X, Y, attributes, attr_inds, ind_attrs, classes = prepare_data(path)
@@ -592,8 +673,6 @@ if __name__ == "__main__":
     test_dataset(RICE_PATH, 'rice', 2, fea_indices=None)
     test_dataset(BEAN_PATH, 'bean', 4, fea_indices=None)
 
-    # run_PCA(RICE_PATH, 'rice')
-    # run_PCA(BEAN_PATH, 'bean')
     run_dimRed_wrapper(RICE_PATH, 'rice')
     run_dimRed_wrapper(BEAN_PATH, 'bean')
 
@@ -606,3 +685,7 @@ if __name__ == "__main__":
     exp_4()
     exp_5()
 
+    test_cluster_with_reduced_once(BEAN_PATH, 'bean', 'kmeans')
+    test_cluster_with_reduced_once(RICE_PATH, 'rice', 'kmeans')
+    test_cluster_with_reduced_once(BEAN_PATH, 'bean', 'em')
+    test_cluster_with_reduced_once(RICE_PATH, 'rice', 'em')
